@@ -64,35 +64,65 @@ class TopologyController(ControllerBase):
         super(TopologyController, self).__init__(req, link, data, **config)
         self.topology_api_app = data['topology_api_app']
 
-    @route('topology', '/v1.0/topology/switches',
+    @route('topology', '/discovery/switches',
            methods=['GET'])
     def list_switches(self, req, **kwargs):
         return self._switches(req, **kwargs)
 
-    @route('topology', '/v1.0/topology/switches/{dpid}',
+    @route('topology', '/discovery/switches/{dpid}',
            methods=['GET'], requirements={'dpid': dpid_lib.DPID_PATTERN})
     def get_switch(self, req, **kwargs):
         return self._switches(req, **kwargs)
 
-    @route('topology', '/v1.0/topology/links',
+    @route('topology', '/discovery/links',
            methods=['GET'])
     def list_links(self, req, **kwargs):
         return self._links(req, **kwargs)
 
-    @route('topology', '/v1.0/topology/links/{dpid}',
+    @route('topology', '/discovery/links/{dpid}',
            methods=['GET'], requirements={'dpid': dpid_lib.DPID_PATTERN})
     def get_links(self, req, **kwargs):
         return self._links(req, **kwargs)
 
-    @route('topology', '/v1.0/topology/hosts',
+    @route('topology', '/discovery/hosts',
            methods=['GET'])
     def list_hosts(self, req, **kwargs):
         return self._hosts(req, **kwargs)
 
-    @route('topology', '/v1.0/topology/hosts/{dpid}',
+    @route('topology', '/discovery/hosts/{dpid}',
            methods=['GET'], requirements={'dpid': dpid_lib.DPID_PATTERN})
     def get_hosts(self, req, **kwargs):
         return self._hosts(req, **kwargs)
+
+    @route('topology', '/discovery', methods=['GET'])
+    def discovery(self, req, **kwargs):
+        switches = self._switches_discovery(req, **kwargs)
+        links = self._links_discovery(req, **kwargs)
+        hosts = self._hosts_discovery(req, **kwargs)
+        obj = { "switches": switches, "links": links, "hosts": hosts }
+        body = json.dumps(obj)
+        return Response(content_type='application/json', body=body)
+
+    def _switches_discovery(self, req, **kwargs):
+        dpid = None
+        if 'dpid' in kwargs:
+            dpid = dpid_lib.str_to_dpid(kwargs['dpid'])
+        switches = get_switch(self.topology_api_app, dpid)
+        return [switch.to_dict() for switch in switches]
+
+    def _links_discovery(self, req, **kwargs):
+        dpid = None
+        if 'dpid' in kwargs:
+            dpid = dpid_lib.str_to_dpid(kwargs['dpid'])
+        links = get_link(self.topology_api_app, dpid)
+        return [link.to_dict() for link in links]
+
+    def _hosts_discovery(self, req, **kwargs):
+        dpid = None
+        if 'dpid' in kwargs:
+            dpid = dpid_lib.str_to_dpid(kwargs['dpid'])
+        hosts = get_host(self.topology_api_app, dpid)
+        return [host.to_dict() for host in hosts]
 
     def _switches(self, req, **kwargs):
         dpid = None

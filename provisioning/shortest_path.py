@@ -39,6 +39,7 @@ from ryu.topology.api import get_switch, get_link
 
 import networkx as nx
 import topology_service as ts
+import event_api_service as evt
 
 
 class SimpleSwitch(app_manager.RyuApp):
@@ -77,6 +78,9 @@ class SimpleSwitch(app_manager.RyuApp):
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             # ignore lldp packet
+            return
+
+        if eth.ethertype != ether_types.ETH_TYPE_ARP:
             return
         dst = eth.dst
         src = eth.src
@@ -129,6 +133,9 @@ class SimpleSwitch(app_manager.RyuApp):
         reason = msg.reason
         port_no = msg.desc.port_no
 
+        instance = evt.EventApiService()
+        instance.send_request()
+
         ofproto = msg.datapath.ofproto
         if reason == ofproto.OFPPR_ADD:
             self.logger.info("port added %s", port_no)
@@ -148,6 +155,7 @@ class SimpleSwitch(app_manager.RyuApp):
         switch_list = get_switch(self.topology_api_app, None)
 
         print "SWITCHES"
+        print switch_list
 
         datapaths = [switch.dp for switch in switch_list]
         print datapaths
@@ -155,6 +163,12 @@ class SimpleSwitch(app_manager.RyuApp):
         switches= [switch.dp.id for switch in switch_list]
         links_list = get_link(self.topology_api_app, None)
         links=[(link.src.dpid,link.dst.dpid,{'port':link.src.port_no}) for link in links_list]
+
+        for switch in switch_list:
+            self.topologyService.__getinstance__().datapaths.append(switch)
+
+        for link in links:
+            self.topologyService.__getinstance__().links.append(link)
 
         #showing info
 

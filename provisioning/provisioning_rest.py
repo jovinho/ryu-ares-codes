@@ -64,6 +64,22 @@ class ProvisioningController(ControllerBase):
     def list_switches(self, req, **kwargs):
         return self._switches(req, **kwargs)
 
+    @route('topology', '/topology/switches/{dpid}',
+           methods=['GET'], requirements={'dpid': dpid_lib.DPID_PATTERN})
+    def get_switch(self, req, **kwargs):
+        return self._switches(req, **kwargs)
+
+    @route('discovery', '/discoveryv0', methods=['GET'])
+    def discovery(self, req, **kwargs):
+        return self._discovery(req, **kwargs)
+
+    def _discovery(self, req, **kwargs):
+        nodes = self.topologyService.__getinstance__().net.nodes()
+        links = self.topologyService.__getinstance__().net.edges()
+        body = json.dumps({ 'datapaths': nodes, 'links': links})
+        return Response(content_type='application', body=body)
+
+
     def _switches(self, req, **kwargs):
         dpid = None
         if 'dpid' in kwargs:
