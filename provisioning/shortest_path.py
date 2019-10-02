@@ -26,9 +26,11 @@ from ryu.app.wsgi import Response
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
+from ryu.controller import dpset
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_0
+from ryu.ofproto import ofproto_v1_3
 from ryu.lib.mac import haddr_to_bin
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
@@ -40,10 +42,12 @@ from ryu.topology.api import get_switch, get_link
 import networkx as nx
 import topology_service as ts
 import event_api_service as evt
+from threading import Timer
 
 
 class SimpleSwitch(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
+    #OFP_VERSIONS = [ofproto_v1_3.OFP_VERSIONS] tentar migrar pro openflow 1.3
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch, self).__init__(*args, **kwargs)
@@ -100,6 +104,11 @@ class SimpleSwitch(app_manager.RyuApp):
             self.topologyService.__getinstance__().net.add_node(src)
             self.topologyService.__getinstance__().net.add_edge(src, dpid)
             self.topologyService.__getinstance__().net.add_edge(dpid, src, portDict)
+            
+            #NOT IN NETWORK
+            #CHAMAR O EVENT DE DEVICE CONNECT
+            instance = evt.EventApiService()
+            instance.send_device_enter(dpid)
 
         if dst in self.topologyService.__getinstance__().net:
             print("FINDIND SHORTEST PATH")
@@ -133,9 +142,9 @@ class SimpleSwitch(app_manager.RyuApp):
         reason = msg.reason
         port_no = msg.desc.port_no
 
-        instance = evt.EventApiService()
-        instance.send_request()
-
+        #instance = evt.EventApiService()
+        #instance.send_port_deleted(msg.desc.name)
+        
         ofproto = msg.datapath.ofproto
         if reason == ofproto.OFPPR_ADD:
             self.logger.info("port added %s", port_no)
@@ -145,11 +154,29 @@ class SimpleSwitch(app_manager.RyuApp):
             self.logger.info("port modified %s", port_no)
         else:
             self.logger.info("Illeagal port state %s %s", port_no, reason)
+            
+    @set_ev_cls(dpset.EventDP)
+    def _switch_event(self, ev):
+        print "CAPTUREI O EVENTO"
+        print ev.enter
+        #ev.dp.id
+        instance = evt.EventApiService()
+        
+        if ev.enter == True:
+            #connect       
+            r = Timer(1.0, instance.send_device_enter, (ev.dp.id, ))
+            r.start()
+        else:
+            r = Timer(1.0, instance.send_device_exit, (ev.dp.id, ))
+            r.start()
+
 
     @set_ev_cls(event.EventSwitchEnter)
     def get_topology_data(self, ev):
         print "TRYING TO GET DAPATH"
-        print ev
+        print ev.switch.dp.id
+        
+        print "EVENT"
 
         #getting switches and links
         switch_list = get_switch(self.topology_api_app, None)
@@ -176,8 +203,11 @@ class SimpleSwitch(app_manager.RyuApp):
         print links
         print("SHOWING SWITCHES")
         print switches
-
-
+        
         ##adding info do the topology service
         self.topologyService.__getinstance__().net.add_nodes_from(switches)
         self.topologyService.__getinstance__().net.add_edges_from(links)
+
+        ##sending event
+        # instance = evt.EventApiService()
+        # instance.send_device_enter(ev.switch.dp.id)

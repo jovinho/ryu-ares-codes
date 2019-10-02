@@ -50,6 +50,9 @@ class ProvisioningController(ControllerBase):
         src = param["source"]
         dst = param["destination"]
 
+        print "NETWORK"
+        print self.topologyService.__getinstance__().net
+
         #buscando melhor caminho
         path = nx.shortest_path(self.topologyService.__getinstance__().net, src, dst) # get shortest path
 
@@ -58,7 +61,9 @@ class ProvisioningController(ControllerBase):
 
         self._installflow(src, dst, path)
 
-        return Response(content_type="text/plain", body="funfou")
+        body = json.dumps({ 'status': 200, 'message': 'Caminho Provisionado', 'source': src, 'destination': dst})
+
+        return Response(content_type="application/json", body=body)
 
     @route('topology', '/topology/switches', methods=['GET'])
     def list_switches(self, req, **kwargs):
@@ -69,15 +74,15 @@ class ProvisioningController(ControllerBase):
     def get_switch(self, req, **kwargs):
         return self._switches(req, **kwargs)
 
-    @route('discovery', '/discoveryv0', methods=['GET'])
-    def discovery(self, req, **kwargs):
-        return self._discovery(req, **kwargs)
+    # @route('discovery', '/discoveryv0', methods=['GET'])
+    # def discovery(self, req, **kwargs):
+    #     return self._discovery(req, **kwargs)
 
-    def _discovery(self, req, **kwargs):
-        nodes = self.topologyService.__getinstance__().net.nodes()
-        links = self.topologyService.__getinstance__().net.edges()
-        body = json.dumps({ 'datapaths': nodes, 'links': links})
-        return Response(content_type='application', body=body)
+    # def _discovery(self, req, **kwargs):
+    #     nodes = self.topologyService.__getinstance__().net.nodes()
+    #     links = self.topologyService.__getinstance__().net.edges()
+    #     body = json.dumps({ 'datapaths': nodes, 'links': links})
+    #     return Response(content_type='application/json', body=body)
 
 
     def _switches(self, req, **kwargs):
@@ -111,18 +116,18 @@ class ProvisioningController(ControllerBase):
                 datapath = datapaths[node]
                 next = path[path.index(datapath.id)+1] #next HOP
                 previous = path[path.index(datapath.id)-1]
-                print "DATAPATH"
-                print node
-                print "NEXT HOP"
-                print next
-                print "PREVIOUS HOP"
-                print previous
+                # print "DATAPATH"
+                # print node
+                # print "NEXT HOP"
+                # print next
+                # print "PREVIOUS HOP"
+                # print previous
                 in_port = self.topologyService.__getinstance__().net[datapath.id][previous]['port'] #get input port
                 out_port = self.topologyService.__getinstance__().net[datapath.id][next]['port'] #get output port
-                print "IN PORT"
-                print in_port
-                print "OUT PORT"
-                print out_port
+                # print "IN PORT"
+                # print in_port
+                # print "OUT PORT"
+                # print out_port
                 #cria a action
                 actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
                 self.add_flow(datapath, in_port, dst, actions)
